@@ -1,0 +1,4 @@
+tests:
+  zth_json_parser:
+    tags: json parser zthulhu
+    platform_allow: native_posix native_posix_64
