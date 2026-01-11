@@ -19,4 +19,5 @@ manifest:
         name-allowlist:
           - cmsis_6    # required by the ARM port for Cortex-M
           - hal_rpi_pico # required by pico boards
+          - fatfs
           - lvgl
