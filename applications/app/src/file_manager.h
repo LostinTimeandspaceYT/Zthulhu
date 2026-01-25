@@ -7,16 +7,19 @@
 extern "C" {
 #endif
 
-#define ZTH_MOUNT_POINT "/SD"
+/* Use SD0 for Metro's onboard SD card (shield uses SD on arduino_spi) */
+#define ZTH_SD_DISK_NAME "SD0"
+#define ZTH_MOUNT_POINT "/SD0"
 #define ZTH_CHARACTER_PATH ZTH_MOUNT_POINT "/characters/"
 #define ZTH_IMAGES_PATH ZTH_MOUNT_POINT "/assets/images/"
-#define ZTH_SD_DISK_NAME "SD"
 
 #define ZTH_FILE_MANAGER_PATH_MAX 256
 
 typedef void (*zth_file_name_cb)(const char *name, void *user);
 
 int zth_file_manager_mount_sdcard(void);
+const char *zth_file_manager_get_error_step(void);
+int zth_file_manager_get_error_code(void);
 int zth_file_manager_write_to(const char *path, const char *contents);
 int zth_file_manager_get_character_path(char *out, size_t out_len,
 					const char *game, const char *character_name);

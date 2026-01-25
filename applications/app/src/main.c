@@ -1,5 +1,7 @@
 #include <sample_usbd.h>
 
+#include "file_manager.h"
+
 #include <zephyr/device.h>
 #include <zephyr/devicetree.h>
 #include <zephyr/drivers/display.h>
@@ -116,7 +118,29 @@ int main(void)
 	lv_obj_t *label = lv_label_create(screen);
 	lv_label_set_text(label, "Zthulhu: TTRPG Companion");
 	lv_obj_set_style_text_color(label, lv_color_hex(0x00FF00), LV_PART_MAIN);
-	lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+	lv_obj_align(label, LV_ALIGN_CENTER, 0, -20);
+
+	/* Mount SD card and show status on display */
+	lv_obj_t *sd_status = lv_label_create(screen);
+	lv_obj_align(sd_status, LV_ALIGN_CENTER, 0, 20);
+
+	lv_label_set_text(sd_status, "SD: initializing...");
+	lv_obj_set_style_text_color(sd_status, lv_color_hex(0xFFFF00), LV_PART_MAIN);
+	lv_timer_handler();
+
+	ret = zth_file_manager_mount_sdcard();
+	if (ret != 0) {
+		const char *step = zth_file_manager_get_error_step();
+		int code = zth_file_manager_get_error_code();
+		LOG_WRN("Failed to mount SD card: %d (continuing without storage)", ret);
+		lv_label_set_text_fmt(sd_status, "SD: %s err %d", step ? step : "unknown", code);
+		lv_obj_set_style_text_color(sd_status, lv_color_hex(0xFF0000), LV_PART_MAIN);
+	} else {
+		LOG_INF("SD card mounted at %s", ZTH_MOUNT_POINT);
+		lv_label_set_text_fmt(sd_status, "SD: mounted at %s", ZTH_MOUNT_POINT);
+		lv_obj_set_style_text_color(sd_status, lv_color_hex(0x00FF00), LV_PART_MAIN);
+		zth_file_manager_print_directory(ZTH_MOUNT_POINT, 0);
+	}
 
 	lv_timer_handler();
 	LOG_INF("LVGL initialized, entering main loop");

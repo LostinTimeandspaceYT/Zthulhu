@@ -31,18 +31,79 @@ static int zth_file_manager_make_path(char *out, size_t out_len,
 	return 0;
 }
 
+/* Store last error step for display feedback */
+static const char *zth_sd_error_step;
+static int zth_sd_error_code;
+
+const char *zth_file_manager_get_error_step(void)
+{
+	return zth_sd_error_step;
+}
+
+int zth_file_manager_get_error_code(void)
+{
+	return zth_sd_error_code;
+}
+
 int zth_file_manager_mount_sdcard(void)
 {
-	int ret = disk_access_init(ZTH_SD_DISK_NAME);
+	int ret;
+	uint32_t sector_count = 0;
+	uint32_t sector_size = 0;
 
-	if (ret) {
-		LOG_ERR("disk_access_init(%s) failed: %d", ZTH_SD_DISK_NAME, ret);
+	zth_sd_error_step = NULL;
+	zth_sd_error_code = 0;
+
+	LOG_INF("Initializing SD card disk '%s'...", ZTH_SD_DISK_NAME);
+
+	/* Give SD card time to power up */
+	k_msleep(100);
+
+	/* Check if disk is already initialized (devicetree auto-init) */
+	ret = disk_access_status(ZTH_SD_DISK_NAME);
+	LOG_INF("Initial disk_access_status: %d", ret);
+
+	if (ret == DISK_STATUS_UNINIT) {
+		ret = disk_access_init(ZTH_SD_DISK_NAME);
+		if (ret) {
+			LOG_ERR("disk_access_init(%s) failed: %d", ZTH_SD_DISK_NAME, ret);
+			zth_sd_error_step = "disk_init";
+			zth_sd_error_code = ret;
+			return ret;
+		}
+	} else if (ret < 0) {
+		LOG_ERR("disk_access_status(%s) failed: %d", ZTH_SD_DISK_NAME, ret);
+		zth_sd_error_step = "disk_status";
+		zth_sd_error_code = ret;
 		return ret;
+	} else {
+		LOG_INF("Disk already initialized (status=%d)", ret);
 	}
+
+	/* Check status after init */
+	ret = disk_access_status(ZTH_SD_DISK_NAME);
+	LOG_INF("Post-init disk_access_status: %d", ret);
+	if (ret != DISK_STATUS_OK) {
+		zth_sd_error_step = "disk_not_ok";
+		zth_sd_error_code = ret;
+		return -EIO;
+	}
+
+	ret = disk_access_ioctl(ZTH_SD_DISK_NAME, DISK_IOCTL_GET_SECTOR_COUNT, &sector_count);
+	LOG_INF("Sector count: %u (ret=%d)", sector_count, ret);
+
+	ret = disk_access_ioctl(ZTH_SD_DISK_NAME, DISK_IOCTL_GET_SECTOR_SIZE, &sector_size);
+	LOG_INF("Sector size: %u (ret=%d)", sector_size, ret);
+
+	LOG_INF("Mounting filesystem at %s...", ZTH_MOUNT_POINT);
 
 	ret = fs_mount(&zth_mount);
 	if (ret) {
 		LOG_ERR("fs_mount(%s) failed: %d", ZTH_MOUNT_POINT, ret);
+		zth_sd_error_step = "fs_mount";
+		zth_sd_error_code = ret;
+	} else {
+		LOG_INF("Filesystem mounted successfully");
 	}
 
 	return ret;

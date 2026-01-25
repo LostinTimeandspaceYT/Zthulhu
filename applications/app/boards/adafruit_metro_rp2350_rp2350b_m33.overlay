@@ -4,11 +4,22 @@
  */
 
 #include <zephyr/dt-bindings/pinctrl/rpi-pico-rp2350b-pinctrl.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/i2c/i2c.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include <zephyr/dt-bindings/clock/rpi_pico_clock_common.h>
 
 / {
 	chosen {
 		zephyr,console = &cdc_acm_uart0;
 		zephyr,shell-uart = &cdc_acm_uart0;
+	};
+
+	/* LVGL encoder input pseudo-device */
+	lvgl_encoder: lvgl_encoder {
+		compatible = "zephyr,lvgl-encoder-input";
+		rotation-input-code = <INPUT_REL_Y>;
+		button-input-code = <INPUT_KEY_0>;
 	};
 };
 
@@ -25,6 +36,13 @@
 			pinmux = <PIO0_P30>, <PIO0_P31>, <PIO0_P27>;
 		};
 	};
+
+	/* Metro RP2350 onboard SD card slot - PIO-based SPI */
+	pio1_spi_sd_default: pio1_spi_sd_default {
+		group1 {
+			pinmux = <PIO1_P34>, <PIO1_P35>, <PIO1_P36>;
+		};
+	};
 };
 
 &arduino_spi {
@@ -37,4 +55,35 @@
 
 &ft5336_adafruit_2_8_tft_touch_v2 {
 	status = "disabled";
+
+/* Metro RP2350 onboard SD card slot - using PIO1 SPI */
+&pio1 {
+	status = "okay";
+
+	pio1_spi_sd: pio1_spi_sd {
+		compatible = "raspberrypi,pico-spi-pio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&clocks RPI_PICO_CLKID_CLK_SYS>;
+		clk-gpios = <&gpio0 34 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpio0 35 GPIO_ACTIVE_HIGH>;
+		miso-gpios = <&gpio0 36 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpio0 39 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&pio1_spi_sd_default>;
+		pinctrl-names = "default";
+		status = "okay";
+
+		sdhc0: sdhc@0 {
+			compatible = "zephyr,sdhc-spi-slot";
+			reg = <0>;
+			status = "okay";
+			spi-max-frequency = <400000>;
+			power-delay-ms = <100>;
+			mmc {
+				compatible = "zephyr,sdmmc-disk";
+				disk-name = "SD0";
+				status = "okay";
+			};
+		};
+	};
 };
