@@ -91,7 +91,7 @@ static struct fs_mount_t zth_test_mount = {
 
 static int zth_test_setup_fs(void)
 {
-	static const MKFS_PARM mkfs_cfg = {
+	static MKFS_PARM mkfs_cfg = {
 		.fmt = FM_ANY | FM_SFD,
 		.n_fat = 1,
 		.align = 0,

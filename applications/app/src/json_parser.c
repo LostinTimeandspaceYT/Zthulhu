@@ -768,7 +768,18 @@ int zth_json_save_coc_character(const char *path,
 		return ret;
 	}
 
-	ret = fs_write(&file, json_buf, json_len);
+	size_t total = 0;
+	while (total < json_len) {
+		ret = fs_write(&file, json_buf + total, json_len - total);
+		if (ret < 0) {
+			break;
+		}
+		if (ret == 0) {
+			ret = -EIO;
+			break;
+		}
+		total += (size_t)ret;
+	}
 	fs_close(&file);
 	k_free(json_buf);
 
@@ -829,7 +840,8 @@ int zth_coc_load_improvements(const char *character_path,
 	char buffer[ZTH_IMPROVE_MAX * ZTH_IMPROVE_LINE_MAX];
 	ssize_t bytes;
 	char *line;
-	char *saveptr = NULL;
+	char *cursor;
+	char *eol;
 	int ret;
 
 	if (character_path == NULL || out == NULL) {
@@ -859,8 +871,14 @@ int zth_coc_load_improvements(const char *character_path,
 	}
 
 	buffer[bytes] = '\0';
-	line = strtok_r(buffer, "\n", &saveptr);
-	while (line != NULL && out->count < ZTH_IMPROVE_MAX) {
+	cursor = buffer;
+	while (cursor != NULL && *cursor != '\0' && out->count < ZTH_IMPROVE_MAX) {
+		eol = strchr(cursor, '\n');
+		if (eol != NULL) {
+			*eol = '\0';
+		}
+
+		line = cursor;
 		zth_json_trim_line(line);
 		if (line[0] != '\0') {
 			strncpy(out->entries[out->count], line,
@@ -868,7 +886,7 @@ int zth_coc_load_improvements(const char *character_path,
 			out->entries[out->count][ZTH_IMPROVE_LINE_MAX - 1] = '\0';
 			out->count++;
 		}
-		line = strtok_r(NULL, "\n", &saveptr);
+		cursor = (eol != NULL) ? (eol + 1) : NULL;
 	}
 
 	return 0;
